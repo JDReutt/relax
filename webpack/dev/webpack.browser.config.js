@@ -25,6 +25,7 @@ var webpackConfig = module.exports = {
     extensions: ['', '.js', '.jsx', '.json']
   },
   plugins: [
+    new webpack.NoErrorsPlugin(),
     new optimize.OccurenceOrderPlugin(),
     new optimize.CommonsChunkPlugin('common.js', ['admin', 'auth', 'public']),
     new CopyWebpackPlugin([
@@ -45,7 +46,9 @@ var webpackConfig = module.exports = {
         query: {
           cacheDirectory: true,
           presets: ['react', 'es2015', 'stage-0'],
-          plugins: ['transform-decorators-legacy',   ['react-transform', {
+          plugins: [
+            'transform-decorators-legacy',
+            ['react-transform', {
               transforms: [
                 {
                   transform: 'react-transform-hmr',

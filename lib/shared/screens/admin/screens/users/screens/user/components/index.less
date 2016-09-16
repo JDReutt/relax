@@ -33,17 +33,26 @@
 }
 
 .name {
+  height: 65px !important;
+  margin-top: 30px;
+  margin-bottom: 10px;
+}
+
+.nameText {
   font-size: 48px;
   color: #ffffff;
-  margin-top: 30px;
   line-height: 65px;
 }
 
-.email {
+.sub {
+  height: 40px !important;
+}
+
+.subText {
   font-size: 26px;
   color: #ffffff;
   font-weight: 200;
-  line-height: 65px;
+  line-height: 40px;
 }
 
 .date {
@@ -55,11 +64,17 @@
   line-height: 20px;
 }
 
-.remove {
+.actions {
   position: absolute;
   right: 25px; top: 25px;
+}
+
+.actionButton {
+  display: inline-block;
+  vertical-align: top;
   color: @adminBorders;
   text-transform: uppercase;
   font-size: 12px;
   line-height: 20px;
+  margin-left: 20px;
 }

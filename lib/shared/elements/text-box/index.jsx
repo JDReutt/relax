@@ -12,23 +12,14 @@ import Component from '../component';
 import Element from '../element';
 
 export default class TextBox extends Component {
-
   static propTypes = {
-    usePadding: PropTypes.bool,
-    padding: PropTypes.string,
-    useAlign: PropTypes.bool,
-    textAlign: PropTypes.string,
     children: PropTypes.node,
     styleClassMap: PropTypes.object,
-    useTrim: PropTypes.bool,
-    maxWidth: PropTypes.number,
     relax: PropTypes.object.isRequired
   };
 
-  static defaultProps = {
-    padding: '0px',
-    textAlign: 'left',
-    maxWidth: 200
+  static contextTypes = {
+    store: PropTypes.object.isRequired
   };
 
   static defaultChildren = 'Click to edit text';
@@ -37,34 +28,23 @@ export default class TextBox extends Component {
   static settings = settings;
   static style = style;
 
-  getStyle () {
-    const result = {};
-
-    if (this.props.usePadding) {
-      result.padding = this.props.padding;
-    }
-    if (this.props.useAlign) {
-      result.textAlign = this.props.textAlign;
-    }
-
-    return result;
-  }
-
   @bind
   onChange (value) {
+    const {store} = this.context;
     const {relax} = this.props;
-    relax.dispatch(changeElementContent(relax.element.id, value));
+    store.dispatch(changeElementContent(relax.element.id, value, relax.context));
   }
 
   render () {
     const {relax} = this.props;
+    const classMap = this.props.styleClassMap;
 
     return (
       <Element
         {...relax}
         htmlTag='div'
         settings={settings}
-        style={this.getStyle()}
+        className={classMap.holder}
       >
         {this.renderContent()}
       </Element>
@@ -75,7 +55,6 @@ export default class TextBox extends Component {
     let result;
     const classMap = this.props.styleClassMap;
     const {editing, selected} = this.props.relax;
-    const styles = {};
     const className = cx(classes.text, classMap.text);
 
     let html = '';
@@ -85,10 +64,6 @@ export default class TextBox extends Component {
       html = this.props.children;
     }
 
-    if (this.props.useTrim) {
-      styles.maxWidth = this.props.maxWidth;
-    }
-
     if (editing && selected) {
       result = (
         <Editor
@@ -96,24 +71,17 @@ export default class TextBox extends Component {
           className={className}
           onChange={this.onChange}
           value={html}
-          options={{
-            toolbar: {
-              buttons: ['bold', 'italic', 'underline', 'anchor']
-            },
-            placeholder: 'Double click to edit text',
-            imageDragging: false
-          }}
         />
       );
     } else {
       result = (
         <div
-          className={cx(className, this.props.useTrim && classes.trim, editing && classes.cursor)}
-          style={styles}
+          className={cx(className, editing && classes.cursor)}
           dangerouslySetInnerHTML={{__html: html}}
         />
       );
     }
+
     return result;
   }
 }

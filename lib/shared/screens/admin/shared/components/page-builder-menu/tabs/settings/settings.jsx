@@ -4,32 +4,22 @@ import React, {PropTypes} from 'react';
 
 import styles from './settings.less';
 import Props from './props';
+import TabEmpty from '../tab-empty';
 
 export default class SettingsTab extends Component {
   static propTypes = {
-    selectedId: PropTypes.string,
+    selected: PropTypes.object,
     selectedElement: PropTypes.object,
     duplicate: PropTypes.func.isRequired,
     remove: PropTypes.func.isRequired
   };
 
   render () {
-    return (
-      <div>
-        {this.renderActionButtons()}
-        <Scrollable autoshow className={styles.content}>
-          {this.renderContent()}
-        </Scrollable>
-      </div>
-    );
-  }
-
-  renderContent () {
-    const {selectedId} = this.props;
+    const {selected} = this.props;
     let result;
 
-    if (selectedId && selectedId !== 'body') {
-      result = <Props {...this.props} />;
+    if (selected && selected.id !== 'body') {
+      result = this.renderContent();
     } else {
       result = this.renderNonSelected();
     }
@@ -37,19 +27,27 @@ export default class SettingsTab extends Component {
     return result;
   }
 
-  renderNonSelected () {
+  renderContent () {
     return (
-      <div className={styles.info}>
-        <i className='nc-icon-outline media-1_touch'></i>
-        <div className={styles.label}>Relax, you have to select an element first!</div>
+      <div>
+        {this.renderActionButtons()}
+        <Scrollable autoshow className={styles.content}>
+          <Props {...this.props} />
+        </Scrollable>
       </div>
     );
   }
 
-  renderActionButtons () {
-    const {selectedId, selectedElement, duplicate, remove} = this.props;
+  renderNonSelected () {
+    return (
+      <TabEmpty />
+    );
+  }
 
-    if (selectedId && selectedId !== 'body') {
+  renderActionButtons () {
+    const {selected, selectedElement, duplicate, remove} = this.props;
+
+    if (selected && selected.id !== 'body') {
       let result;
 
       if (selectedElement.subComponent) {

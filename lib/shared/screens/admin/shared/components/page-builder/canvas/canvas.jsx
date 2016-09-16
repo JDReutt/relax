@@ -1,18 +1,24 @@
 import bind from 'decorators/bind';
-import debounce from 'decorators/debounce';
-import displays from 'helpers/displays';
-import getElementProps from 'helpers/get-element-props';
+import displays from 'statics/displays';
+import isElementSelected from 'helpers/is-element-selected';
 import stylesManager from 'helpers/styles-manager';
-import utils from 'helpers/utils';
+import traverseChildren from 'helpers/traverser/children';
+import traverser from 'helpers/traverser';
 import Component from 'components/component';
 import Droppable from 'components/dnd/droppable';
 import Scrollable from 'components/scrollable';
 import Styles from 'components/styles';
-import Symbol from 'elements/symbol';
 import React, {PropTypes} from 'react';
 
 import classes from './canvas.less';
 import Empty from './empty';
+
+const defaultStyleClassMap = {};
+const bodyDropInfo = {
+  id: 'body',
+  type: 'body',
+  context: 'data'
+};
 
 export default class Canvas extends Component {
   static propTypes = {
@@ -20,13 +26,14 @@ export default class Canvas extends Component {
     display: PropTypes.string.isRequired,
     styles: PropTypes.array.isRequired,
     dragging: PropTypes.bool.isRequired,
-    pageData: PropTypes.object.isRequired,
-    templateData: PropTypes.object,
+    doc: PropTypes.object.isRequired,
+    template: PropTypes.object,
     elements: PropTypes.object.isRequired,
-    selectedId: PropTypes.string,
+    selected: PropTypes.object,
     editing: PropTypes.bool.isRequired,
     editingSymbol: PropTypes.bool.isRequired,
-    updateStylesMap: PropTypes.func.isRequired
+    updateStylesMap: PropTypes.func.isRequired,
+    type: PropTypes.string.isRequired
   };
 
   static contextTypes = {
@@ -49,65 +56,49 @@ export default class Canvas extends Component {
     window.dispatchEvent(new Event('scroll'));
   }
 
-  @debounce(10)
   updateStylesMap () {
     this.props.updateStylesMap(stylesManager.stylesMap);
   }
 
   render () {
-    const {display, templateData} = this.props;
-    const dropInfo = {
-      id: 'body',
-      type: 'body'
-    };
+    const {display, template, doc, elements, type, editing} = this.props;
     const bodyStyle = {
       margin: '0 auto',
       maxWidth: displays[display]
     };
 
-    const content = templateData ? this.renderTemplate() : this.renderContent();
+    let content = traverser({
+      template,
+      doc,
+      display,
+      elements,
+      editing,
+      type
+    }, this.renderElement);
     this.updateStylesMap();
+
+    if (!template) {
+      content = (
+        <Droppable
+          key='body'
+          type='body'
+          placeholder
+          placeholderRender={this.renderPlaceholder}
+          dropInfo={bodyDropInfo}
+        >
+          {content}
+        </Droppable>
+      );
+    }
 
     return (
       <Scrollable className={classes.canvas} onScroll={this.onScroll}>
         <div className={classes.content} style={bodyStyle} ref='body'>
-          <Droppable
-            type='body'
-            placeholder
-            placeholderRender={this.renderPlaceholder}
-            dropInfo={dropInfo}
-            accepts='Section'
-            minHeight='100%'
-          >
-            {content}
-          </Droppable>
+          {content}
         </div>
         <Styles />
       </Scrollable>
     );
-  }
-
-  renderTemplate () {
-    const {templateData} = this.props;
-    const content = this.renderContent();
-
-    return templateData.body && this.renderChildren(templateData.body.children, {
-      customData: templateData,
-      editing: false,
-      injectChildren: {
-        id: templateData.content,
-        content
-      }
-    });
-  }
-
-  renderContent () {
-    const {pageData, editingSymbol} = this.props;
-    const elementsLinks = {};
-    return pageData && pageData.body && this.renderChildren(pageData.body.children, {
-      elementsLinks,
-      disableSelection: editingSymbol
-    });
   }
 
   @bind
@@ -118,89 +109,103 @@ export default class Canvas extends Component {
     );
   }
 
-  renderChildren (children, options) {
-    let result;
+  @bind
+  renderChildren (options) {
+    const {doc, display, elements, type, editing, template} = this.props;
 
-    if (children instanceof Array) {
-      result = children.map(this.renderElement.bind(this, options));
-    } else {
-      result = children;
+    // calculate data from context
+    let data;
+    if (!options.data) {
+      if (template && options.context === template._id) {
+        // belongs to template
+        data = template.data;
+      } else {
+        // belongs to page
+        data = doc[options.context];
+      }
     }
 
-    return result;
-  }
-
-  @bind
-  renderChildrenSub (...params) {
-    const result = this.renderChildren(...params);
-    this.updateStylesMap();
-    return result;
-  }
-
-  @bind
-  renderElementSub (...params) {
-    const result = this.renderElement(...params);
-    this.updateStylesMap();
-    return result;
-  }
-
-  renderElement (options, elementId, positionInParent) {
-    const {display, editing, pageData, elements, selectedId, styles} = this.props;
-    let element = options.customData && options.customData[elementId] || pageData[elementId];
-
-    const elementProps = getElementProps(element, display);
-
-    if (options.schemaEntry && options.elementsLinks && options.elementsLinks[element.id]) {
-      element = utils.alterSchemaElementProps(
-        options.elementsLinks[element.id],
-        element,
-        options.schemaEntry,
-        elementProps
-      );
-    }
-
-    const styleClassMap = stylesManager.processElement(
-      element,
-      elementProps,
-      elements[element.tag],
-      styles,
+    return traverseChildren(Object.assign({data}, options), {
+      doc,
+      display,
       elements,
+      editing,
+      type
+    }, this.renderElement);
+  }
+
+  @bind
+  renderChildChildren (options) {
+    const result = this.renderChildren(options);
+    this.updateStylesMap();
+
+    return result;
+  }
+
+  @bind
+  renderElement (elementInfo, children) {
+    const {styles, elements, display, selected} = this.props;
+    const {
+      ElementClass,
+      displayElement,
+      props,
+      elementId,
+      context,
+      element,
+      positionInParent,
+      editable,
+      elementLinks,
+      builderLink
+    } = elementInfo;
+
+    const styleClassMap = stylesManager.processElement({
+      element,
+      elements,
+      styles,
       display
-    );
+    });
 
-    if ((!element.hide || !element.hide[display]) && element.display !== false) {
-      const FactoredElement = element.tag === 'Symbol' ? Symbol : elements[element.tag];
-      const selected = selectedId === element.id;
-      let children;
+    if (displayElement) {
+      let resultChildren = children;
 
-      if (element.tag !== 'Symbol') {
-        if (options.injectChildren && options.injectChildren.id === element.id) {
-          children = options.injectChildren.content;
-        } else if (element.children) {
-          children = this.renderChildren(element.children, options);
-        }
+      if (builderLink) {
+        resultChildren = (
+          <Droppable
+            key={`${context}-${elementId}-body`}
+            type='body'
+            placeholder
+            placeholderRender={this.renderPlaceholder}
+            dropInfo={{
+              id: 'body',
+              context: builderLink.property
+            }}
+          >
+            {children}
+          </Droppable>
+        );
       }
 
       return (
-        <FactoredElement
-          {...elementProps}
-          styleClassMap={styleClassMap || {}}
-          key={elementId}
+        <ElementClass
+          key={`${context}-${elementId}`}
+          styleClassMap={styleClassMap || defaultStyleClassMap}
+          {...props}
           relax={{
-            editing: typeof options.editing !== 'undefined' ? options.editing : editing,
-            disableSelection: options.disableSelection,
-            display,
-            selected,
+            editing: editable,
+            context,
             element,
             positionInParent,
-            renderElement: this.renderElementSub,
-            renderChildren: this.renderChildrenSub,
-            insideSymbol: options.customData && true,
-            dispatch: this.context.store.dispatch
+            elementLinks,
+            renderChildren: this.renderChildChildren,
+            display,
+            selected: selected && isElementSelected(selected, {
+              id: elementId,
+              context
+            })
           }}
         >
-          {children}
-        </FactoredElement>
+          {resultChildren}
+        </ElementClass>
       );
     }
   }

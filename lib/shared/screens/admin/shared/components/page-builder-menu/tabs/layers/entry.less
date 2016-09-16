@@ -48,6 +48,12 @@
     }
     color: @chromeTextColorHighlight;
   }
+
+  &.disabled {
+    .info {
+      opacity: 0.5;
+    }
+  }
 }
 
 .part {
@@ -108,5 +114,17 @@
 
   :global i {
     line-height: @height;
+  }
+}
+
+.linked {
+  color: @linkColor;
+
+  .info {
+    :global {
+      i, span {
+        color: @linkColor;
+      }
+    }
   }
 }

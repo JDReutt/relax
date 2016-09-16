@@ -1,5 +1,5 @@
 import bind from 'decorators/bind';
-import getElementPosition from 'helpers/get-element-position';
+import getElementCss from 'helpers/get-element-css';
 import velocity from 'velocity-animate';
 import Component from 'components/component';
 import Draggable from 'components/dnd/draggable';
@@ -36,7 +36,12 @@ export default class Element extends Component {
     resetAnimation: PropTypes.func.isRequired,
     contentElementId: PropTypes.string,
     focused: PropTypes.bool,
-    disableSelection: PropTypes.bool
+    disableSelection: PropTypes.bool,
+    linkingDataMode: PropTypes.bool,
+    context: PropTypes.string,
+    isHighlightable: PropTypes.bool,
+    hasAnimation: PropTypes.bool,
+    elementLinks: PropTypes.array
   };
 
   static defaultProps = {
@@ -45,25 +50,34 @@ export default class Element extends Component {
   };
 
   componentDidMount () {
-    const {editing, animation, onEnterScreen} = this.props;
+    const {editing, hasAnimation, onEnterScreen} = this.props;
 
-    if ((!editing && animation) || onEnterScreen) {
-      this.onScrollBind = ::this.onScroll;
-      window.addEventListener('scroll', this.onScrollBind);
+    // Animation
+    if (hasAnimation || onEnterScreen) {
+      window.addEventListener('scroll', this.onScroll);
       this.onScroll();
     }
     if (editing) {
-      this.animationEditingBind = ::this.animationEditing;
-      window.addEventListener('animateElements', this.animationEditingBind);
+      window.addEventListener('animateElements', this.animationInitForce);
+    }
+  }
+
+  componentWillReceiveProps (nextProps) {
+    const {editing, hasAnimation, element} = this.props;
+
+    if (editing && hasAnimation && element.animation !== nextProps.element.animation) {
+      this.animationInitForce();
     }
   }
 
   componentWillUnmount () {
-    if (this.onScrollBind) {
-      window.removeEventListener('scroll', this.onScrollBind);
+    const {editing} = this.props;
+
+    if (this.onScroll) {
+      window.removeEventListener('scroll', this.onScroll);
     }
-    if (this.animationEditingBind) {
-      window.removeEventListener('animateElements', this.animationEditingBind);
+    if (editing) {
+      window.removeEventListener('animateElements', this.animationInitForce);
     }
     if (this.animationTimeout) {
       clearTimeout(this.animationTimeout);
@@ -72,100 +86,89 @@ export default class Element extends Component {
 
   @bind
   animate () {
-    const dom = findDOMNode(this);
-    const {animation, startAnimation} = this.props;
-    startAnimation();
-    velocity(dom, animation.effect, {
-      duration: animation.duration,
-      display: null
-    });
+    const {element, hasAnimation} = this.props;
+
+    if (hasAnimation && !this.animating && !this.animated) {
+      const dom = findDOMNode(this);
+      this.animating = true;
+
+      velocity.hook(dom, 'opacity', 0);
+      velocity(dom, element.animation.effect, {
+        duration: parseInt(element.animation.duration, 10),
+        display: null,
+        complete: () => {
+          this.animating = false;
+          this.animated = true;
+        }
+      });
+    }
   }
 
+  @bind
   animationInit () {
-    const animation = this.props.animation;
-    if (animation) {
-      this.animationTimeout = setTimeout(this.animate, animation.delay);
+    const {hasAnimation, element} = this.props;
+
+    if (hasAnimation && !this.animating) {
+      this.animationTimeout = setTimeout(
+        this.animate,
+        parseInt(element.animation.delay, 10)
+      );
     }
   }
 
-  animationEditing () {
-    if (this.props.animation) {
-      this.props.resetAnimation();
-      this.animationInit();
-    }
+  @bind
+  animationInitForce () {
+    this.animating = false;
+    this.animated = false;
+    this.animationInit();
   }
 
+  @bind
   onScroll () {
+    const {onEnterScreen} = this.props;
     const dom = findDOMNode(this);
     const rect = dom.getBoundingClientRect();
 
     if ((rect.top <= 0 && rect.bottom >= 0) || (rect.top > 0 && rect.top < window.outerHeight)) {
-      if (this.state.animation) {
-        this.animationInit();
+      this.animationInit();
+
+      if (onEnterScreen) {
+        onEnterScreen();
       }
-      if (this.props.onEnterScreen) {
-        this.props.onEnterScreen();
-      }
-      window.removeEventListener('scroll', this.onScrollBind);
+
+      window.removeEventListener('scroll', this.onScroll);
     }
   }
 
   @bind
   onElementClick (event) {
-    const {selectElement, element} = this.props;
+    const {selectElement, element, context} = this.props;
     event.stopPropagation();
-    selectElement(element.id);
+
+    selectElement(element.id, context);
   }
 
   processAnimationStyle (style) {
-    const {editing, animation, animated, animatedEditing} = this.props;
-    if ((editing && animatedEditing) || (!editing && animation && !animated)) {
+    const {hasAnimation} = this.props;
+
+    if (hasAnimation && !this.animated && !this.animating) {
       style.opacity = 0;
     }
   }
 
-  processPosition (style) {
-    const {element, display, editing} = this.props;
-    Object.assign(style, getElementPosition(element, display));
-
-    if (editing) {
-      if (style.position === 'fixed') {
-        // if (style.top !== 'auto') {
-        //   if (utils.isPercentage(style.top)) {
-        //     const value = (1 - parseInt(style.top, 10) / 100) * 45;
-        //     style.top = `calc(${style.top} + ${value}px)`;
-        //   } else {
-        //     style.top = `calc(${style.top} + 45px)`;
-        //   }
-        // }
-        // if (style.bottom !== 'auto' && utils.isPercentage(style.bottom)) {
-        //   const value = parseInt(style.bottom, 10) / 100 * 45;
-        //   style.bottom = `calc(${style.bottom} - ${value}px)`;
-        // }
-        // if (style.right !== 'auto') {
-        //   if (utils.isPercentage(style.right)) {
-        //     const value = (1 - parseInt(style.right, 10) / 100) * 280;
-        //     style.right = `calc(${style.right} + ${value}px)`;
-        //   } else {
-        //     style.right = `calc(${style.right} + 280px)`;
-        //   }
-        // }
-        // if (style.left !== 'auto' && utils.isPercentage(style.left)) {
-        //   const value = parseInt(style.left, 10) / 100 * 280;
-        //   style.left = `calc(${style.left} - ${value}px)`;
-        // }
-      }
-    }
+  processCss (style) {
+    const {element, display} = this.props;
+    Object.assign(style, getElementCss(element, display));
   }
 
   @bind
   onMouseOver (event) {
-    const {dragging, overed, selected, overElement, element} = this.props;
+    const {dragging, overed, selected, overElement, element, context} = this.props;
     if (!dragging) {
       event.stopPropagation();
       clearTimeout(this.outTimeout);
       if (!overed && !selected) {
-        overElement(element.id);
+        overElement(element.id, context);
       }
     }
   }
@@ -180,12 +183,12 @@ export default class Element extends Component {
 
   @bind
   selectOut () {
-    const {outElement, element} = this.props;
-    outElement(element.id);
+    const {outElement, element, context} = this.props;
+    outElement(element.id, context);
   }
 
   render () {
-    const {editing, settings, element, positionInParent, selected, disableSelection} = this.props;
+    const {editing, settings, element, positionInParent, selected, disableSelection, context} = this.props;
     let result;
 
     if (editing && settings.drag) {
@@ -193,6 +196,7 @@ export default class Element extends Component {
         dragInfo: {
           type: 'move',
           id: element.id,
+          context,
           parentId: element.parent,
           positionInParent
         },
@@ -215,11 +219,11 @@ export default class Element extends Component {
 
   renderTag () {
     const HtmlTag = this.props.htmlTag;
-    const {style, className, editing, element, disableSelection} = this.props;
+    const {style, className, editing, isHighlightable, element, disableSelection} = this.props;
 
     const calcStyle = Object.assign({}, style);
     this.processAnimationStyle(calcStyle);
-    this.processPosition(calcStyle);
+    this.processCss(calcStyle);
 
     const tagProps = {
       style: calcStyle,
@@ -230,9 +234,11 @@ export default class Element extends Component {
       tagProps.onMouseOver = this.onMouseOver;
       tagProps.onMouseOut = this.onMouseOut;
     }
-    if (editing) {
+    if (isHighlightable) {
       tagProps.ref = (ref) => {
-        this.ref = ref;
+        !this.state.ref && this.setState({
+          ref
+        });
       };
       tagProps.id = element.id;
     }
@@ -246,13 +252,14 @@ export default class Element extends Component {
   }
 
   renderContent () {
-    const {editing, settings, element, focused, disableSelection} = this.props;
+    const {editing, settings, element, focused, disableSelection, context} = this.props;
     let result;
 
     if (editing && !disableSelection && settings.drop && !settings.drop.customDropArea) {
       const droppableProps = Object.assign({
         dropInfo: {
-          id: element.id
+          id: element.id,
+          context
         },
         type: element.tag,
         placeholder: true,
@@ -286,16 +293,32 @@ export default class Element extends Component {
   }
 
   renderHighlight () {
-    const {editing, selected, overed, dragging, element, settings, contentElementId, focused} = this.props;
-    if (editing && (focused || selected || overed) && !dragging && this.ref) {
+    const {
+      overed,
+      selected,
+      element,
+      settings,
+      contentElementId,
+      focused,
+      context,
+      linkingDataMode,
+      elementLinks,
+      isHighlightable
+    } = this.props;
+
+    if (isHighlightable && this.state.ref) {
       return (
         <Highlight
           element={element}
           settings={settings}
+          overed={overed}
           selected={selected}
           focused={focused}
+          elementLinks={elementLinks}
           contentElementId={contentElementId}
-          dom={this.ref}
+          context={context}
+          linkingDataMode={linkingDataMode}
+          dom={this.state.ref}
         />
       );
     }

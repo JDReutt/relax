@@ -1,3 +1,5 @@
+import bind from 'decorators/bind';
+import traverser from 'helpers/traverser';
 import Component from 'components/component';
 import Droppable from 'components/dnd/droppable';
 import Scrollable from 'components/scrollable';
@@ -8,92 +10,116 @@ import Entry from './entry';
 
 export default class Layers extends Component {
   static propTypes = {
-    pageBuilderActions: PropTypes.object.isRequired,
-    data: PropTypes.object.isRequired,
-    elements: PropTypes.object.isRequired,
-    expanded: PropTypes.object.isRequired,
-    userExpanded: PropTypes.object.isRequired,
-    dragging: PropTypes.bool.isRequired,
-    selectedId: PropTypes.string,
-    overedId: PropTypes.string
+    doc: PropTypes.object,
+    template: PropTypes.object,
+    selected: PropTypes.object,
+    selectedElement: PropTypes.object,
+    elements: PropTypes.object,
+    expanded: PropTypes.object,
+    userExpanded: PropTypes.object,
+    overed: PropTypes.object,
+    dragging: PropTypes.bool,
+    type: PropTypes.string,
+    pageBuilderActions: PropTypes.object.isRequired
   };
 
   render () {
-    const {data, pageBuilderActions} = this.props;
+    const {pageBuilderActions} = this.props;
+
     return (
       <Scrollable>
         <div className={styles.filterDisplay}>
-          <button className={styles.trigger} onClick={pageBuilderActions.expandAll}>Expand all</button>
-          <button className={styles.trigger} onClick={pageBuilderActions.collapseAll}>Collapse all</button>
+          <button
+            className={styles.trigger}
+            onClick={pageBuilderActions.expandAll}
+          >
+            Expand all
+          </button>
+          <button
+            className={styles.trigger}
+            onClick={pageBuilderActions.collapseAll}
+          >
+            Collapse all
+          </button>
         </div>
         <div className={styles.structureList}>
-          {
-            data.body &&
-            data.body.children &&
-            this.renderList(
-              data.body.children,
-              {type: 'body', id: 'body'},
-              {accepts: 'Section'},
-              {tag: 'body'}
-            )
-          }
+          <ul className={styles.list}>
+            {this.renderContent()}
+          </ul>
         </div>
       </Scrollable>
     );
   }
 
-  renderList (children, dropInfo, dropSettings, parent, droppable = true) {
-    let result;
-    if (!droppable) {
-      result = (
-        <ul className={styles.list}>
-          {children.map(this.renderListEntry, this)}
-        </ul>
-      );
-    } else {
-      result = (
-        <ul className={styles.list}>
-          <Droppable showMarks={false} type={parent.type} dropInfo={dropInfo} {...dropSettings} hitSpace={12}>
-            {children.map(this.renderListEntry, this)}
-          </Droppable>
-        </ul>
-      );
-    }
-    return result;
+  renderContent () {
+    const {template, doc, type, elements} = this.props;
+
+    const content = traverser({
+      template,
+      doc,
+      display: 'desktop',
+      elements,
+      editing: true,
+      type
+    }, this.renderListEntry);
+
+    return content;
   }
 
-  renderListEntry (elementId) {
+  @bind
+  renderListEntry (elementInfo, children) {
     const {
-      elements,
-      data,
+      pageBuilderActions,
       expanded,
       userExpanded,
       dragging,
-      pageBuilderActions,
-      selectedId,
-      overedId
+      selected,
+      overed
     } = this.props;
-    const element = data[elementId];
-    const hasChildren = element.children instanceof Array && element.children.length > 0;
-    const ElementClass = elements[element.tag];
-    const dropInfo = {id: element.id};
-    let dropSettings = ElementClass.settings.drop;
-    const isExpanded = hasChildren && (expanded[elementId] || userExpanded[elementId]) && true;
+    const {
+      ElementClass,
+      elementId,
+      context,
+      element,
+      elementLinks,
+      editable
+    } = elementInfo;
 
-    if (dropSettings !== false) {
-      dropSettings = Object.assign({}, ElementClass.settings.drop, {
-        orientation: 'vertical',
-        customDropArea: false,
-        selectionChildren: false
-      });
-    }
+    const hasChildren = children && children.constructor === Array && children.length;
 
-    let underlings;
+    // check expanded
+    const wasExpanded = expanded[context] && expanded[context][elementId];
+    const wasUserExpanded = userExpanded[context] && userExpanded[context][elementId];
+    const isExpanded = !!(hasChildren && (wasExpanded || wasUserExpanded));
 
-    if (isExpanded) {
-      underlings = this.renderList(element.children, dropInfo, dropSettings, element, dropSettings);
-    } else if (dragging && !hasChildren && dropSettings !== false) {
-      underlings = (
+    // children
+    let childrenContent;
+    const dropSettings = Object.assign({}, ElementClass.settings.drop, {
+      orientation: 'vertical',
+      customDropArea: false,
+      selectionChildren: false
+    });
+    const dropInfo = {
+      id: element.id,
+      context
+    };
+
+    if (isExpanded && hasChildren && editable) {
+      childrenContent = (
+        <ul className={styles.list}>
+          <Droppable
+            showMarks={false}
+            type={parent.type}
+            dropInfo={dropInfo}
+            {...dropSettings}
+            hitSpace={12}
+          >
+            {children}
+          </Droppable>
+        </ul>
+      );
+    } else if (editable && dragging && !hasChildren && ElementClass.settings.drop !== false) {
+      childrenContent = (
         <ul className={styles.list}>
           <Droppable
             type={element.tag}
@@ -104,6 +130,12 @@ export default class Layers extends Component {
           />
         </ul>
       );
+    } else if (hasChildren && isExpanded) {
+      childrenContent = (
+        <ul className={styles.list}>
+          {children}
+        </ul>
+      );
     }
 
     return (
@@ -111,14 +143,17 @@ export default class Layers extends Component {
         <Entry
           pageBuilderActions={pageBuilderActions}
           element={element}
+          editable={editable}
+          context={context}
           isExpanded={isExpanded}
           hasChildren={hasChildren}
           dragging={dragging}
           ElementClass={ElementClass}
-          selectedId={selectedId}
-          overedId={overedId}
+          selected={selected}
+          overed={overed}
+          hasLinks={elementLinks && elementLinks.length}
         />
-        {underlings}
+        {childrenContent}
       </li>
     );
   }

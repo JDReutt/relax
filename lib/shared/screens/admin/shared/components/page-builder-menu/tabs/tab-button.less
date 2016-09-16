@@ -6,14 +6,39 @@
   width: 33.3332%;
   color: @chromeTextColor;
   text-align: center;
-  font-size: 12px;
-  line-height: 49px;
   text-transform: uppercase;
   border-right: 1px solid @chromeBordersColor;
+
+  transition: width 0.5s cubic-bezier(0.190, 1.000, 0.220, 1.000);
 
   &:last-child {
     border-right: 0;
   }
+
+  :global i {
+    display: inline-block;
+    vertical-align: top;
+    line-height: 49px;
+    width: 100%;
+    text-align: center;
+    font-size: 22px;
+  }
+
+  &.link {
+    width: 0%;
+    opacity: 0;
+  }
+
+  &.dataLinkable {
+    width: 25%;
+    opacity: 1;
+  }
+}
+
+.button {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .selected {

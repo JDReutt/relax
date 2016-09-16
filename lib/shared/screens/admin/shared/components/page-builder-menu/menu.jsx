@@ -4,14 +4,11 @@ import React, {PropTypes} from 'react';
 
 import styles from './menu.less';
 import Breadcrumbs from './breadcrumbs';
-import LinkingData from './linking-data';
 import Tabs from './tabs';
 
 export default class PageBuilderMenu extends Component {
   static propTypes = {
     editing: PropTypes.bool.isRequired,
-    linkingData: PropTypes.bool.isRequired,
-    linkingFormData: PropTypes.bool.isRequired,
     previewing: PropTypes.bool.isRequired
   };
 
@@ -35,25 +32,10 @@ export default class PageBuilderMenu extends Component {
     return (
       <div className={styles.root} ref='content'>
         <div className={styles.content}>
-          {this.renderContent()}
+          <Tabs />
         </div>
         <Breadcrumbs className={styles.breadcrumbs} />
       </div>
     );
-  }
-
-  renderContent () {
-    const {linkingData, linkingFormData} = this.props;
-    let result;
-
-    if (linkingData) {
-      result = <LinkingData />;
-    } else if (linkingFormData) {
-      result = <div>Missing</div>;
-    } else {
-      result = <Tabs />;
-    }
-
-    return result;
   }
 }

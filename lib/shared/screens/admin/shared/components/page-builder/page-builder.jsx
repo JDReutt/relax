@@ -17,20 +17,23 @@ export default class PageBuilder extends Component {
     dragging: PropTypes.bool.isRequired,
     elementsMenuOpened: PropTypes.bool.isRequired,
     pageBuilderActions: PropTypes.object.isRequired,
-    templateData: PropTypes.object,
-    loading: PropTypes.bool.isRequired
+    template: PropTypes.object,
+    loading: PropTypes.bool.isRequired,
+    type: PropTypes.string.isRequired
   };
 
   componentDidMount () {
-    const {undoAction, redoAction} = this.props.pageBuilderActions;
-    key('⌘+z, ctrl+z', undoAction);
-    key('⌘+y, ctrl+y', redoAction);
-    // key('delete', );
+    const {undoAction, redoAction, removeSelectedElement} = this.props.pageBuilderActions;
+
+    key('⌘+z, ctrl+z', 'pageBuilder', undoAction);
+    key('⌘+y, ctrl+y', 'pageBuilder', redoAction);
+    key('backspace, del, delete', 'pageBuilder', removeSelectedElement);
+
+    key.setScope('pageBuilder');
   }
 
   componentWillUnmount () {
-    key.unbind('⌘+z, ctrl+z');
-    key.unbind('⌘+y, ctrl+y');
+    key.deleteScope('pageBuilder');
   }
 
   render () {
@@ -47,11 +50,15 @@ export default class PageBuilder extends Component {
   }
 
   renderContent () {
-    const {templateData} = this.props;
+    const {template, type} = this.props;
+
     return (
       <div className={cx(styles.root)}>
         <Jss stylesheet={stylesheet} />
-        <Canvas templateData={templateData} />
+        <Canvas
+          template={template}
+          type={type}
+        />
         {this.renderElementsMenu()}
         {this.renderDragger()}
       </div>

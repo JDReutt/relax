@@ -17,10 +17,11 @@ export default class DynamicListEntry extends Component {
     isLast: PropTypes.bool,
     editing: PropTypes.bool,
     horizontalGutter: PropTypes.string,
-    element: PropTypes.func,
+    element: PropTypes.object,
     elementsLinks: PropTypes.object,
     schemaEntry: PropTypes.object,
     renderChildren: PropTypes.func.isRequired,
+    context: PropTypes.string.isRequired,
     children: PropTypes.node
   };
 
@@ -76,11 +77,11 @@ export default class DynamicListEntry extends Component {
   }
 
   renderEditing () {
-    const {element} = this.props;
+    const {element, context} = this.props;
     return this.renderWrapper(
       <Droppable
         type={element.tag}
-        dropInfo={{id: element.id}}
+        dropInfo={{id: element.id, context}}
         {...settings.drop}
         placeholder
         placeholderRender={this.renderPlaceholder}
@@ -92,10 +93,14 @@ export default class DynamicListEntry extends Component {
   }
 
   renderContent () {
-    const {elementsLinks, schemaEntry, element, children, renderChildren} = this.props;
-    return children && renderChildren(element.children, {
-      elementsLinks,
-      schemaEntry
+    const {elementsLinks, schemaEntry, element, children, renderChildren, context, editing} = this.props;
+
+    return children && renderChildren({
+      children: element.children,
+      links: elementsLinks,
+      entry: schemaEntry,
+      context,
+      editable: editing
     });
   }
 

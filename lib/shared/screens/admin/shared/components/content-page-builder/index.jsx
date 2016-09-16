@@ -19,7 +19,8 @@ export default class ContentPageBuilder extends Component {
     template: {
       _id: 1,
       title: 1,
-      data: 1
+      data: 1,
+      links: 1
     }
   };
 
@@ -29,13 +30,13 @@ export default class ContentPageBuilder extends Component {
     title: PropTypes.string,
     slug: PropTypes.string,
     updateTitle: PropTypes.func.isRequired,
-    updateSlug: PropTypes.func.isRequired,
+    updateSlug: PropTypes.func,
     updateTemplate: PropTypes.func.isRequired,
     sidebar: PropTypes.string,
     location: PropTypes.object.isRequired,
     toggleRevisions: PropTypes.func.isRequired,
     toggleInfo: PropTypes.func.isRequired,
-    toggleTemplates: PropTypes.func.isRequired,
+    toggleTemplates: PropTypes.func,
     Info: PropTypes.func,
     Revisions: PropTypes.func,
     type: PropTypes.string.isRequired,
@@ -45,7 +46,7 @@ export default class ContentPageBuilder extends Component {
   getInitState () {
     const {location} = this.props;
     return {
-      build: location.query.build && true
+      build: !!location.query.build
     };
   }
 
@@ -56,7 +57,7 @@ export default class ContentPageBuilder extends Component {
 
     if (this.props.itemId !== nextProps.itemId) {
       this.setState({
-        build: currentBuild && true
+        build: !!currentBuild
       });
     }
 
@@ -79,7 +80,7 @@ export default class ContentPageBuilder extends Component {
   }
 
   render () {
-    const {location, type, template} = this.props;
+    const {location, type, template, itemId} = this.props;
 
     return (
       <Animate transition='fadeIn'>
@@ -87,8 +88,9 @@ export default class ContentPageBuilder extends Component {
           {this.renderHeader()}
           <div className={styles.content} ref='content'>
             <PageBuilder
+              itemId={itemId}
               type={type}
-              templateData={template && template.data}
+              template={template}
             />
             <A href={location.pathname} query={{build: 1}} className={styles.cover} ref='cover'>
               <div className={styles.coverContent}>
@@ -154,6 +156,7 @@ export default class ContentPageBuilder extends Component {
   renderSidebar () {
     const {sidebar} = this.props;
     const opened = sidebar !== null && !this.props.location.query.build;
+
     return (
       <ContentSidebar opened={opened}>
         {this.renderSidebarContent()}
@@ -174,9 +177,11 @@ export default class ContentPageBuilder extends Component {
         <Revisions />
       );
     } else if (sidebar === 'templates') {
-      const {template, updateTemplate} = this.props;
+      const {template, updateTemplate, type, itemId} = this.props;
       result = (
         <Templates
+          type={type}
+          itemId={itemId}
           value={template && template._id}
           onChange={updateTemplate}
         />

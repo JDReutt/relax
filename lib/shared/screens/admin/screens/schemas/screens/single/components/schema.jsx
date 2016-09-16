@@ -1,4 +1,5 @@
 import Component from 'components/component';
+import ContentEmpty from 'components/content-empty';
 import React, {PropTypes} from 'react';
 
 import styles from './schema.less';
@@ -7,7 +8,7 @@ import New from './new';
 export default class Schema extends Component {
   static propTypes = {
     children: PropTypes.node,
-    count: PropTypes.number.isRequired,
+    count: PropTypes.number,
     schemaId: PropTypes.string.isRequired
   };
 
@@ -27,10 +28,7 @@ export default class Schema extends Component {
 
   renderEmpty () {
     return (
-      <div className={styles.empty}>
-        <i className='nc-icon-outline media-1_touch'></i>
-        <div className={styles.emptyText}>Relax, select an entry first!</div>
-      </div>
+      <ContentEmpty name='entry' />
     );
   }
 
